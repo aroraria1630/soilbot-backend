@@ -1,36 +1,31 @@
-import { Configuration, OpenAIApi } from "openai";
-
-const configuration = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-const openai = new OpenAIApi(configuration);
+import fs from 'fs';
+import path from 'path';
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Only POST requests allowed' });
   }
 
   const { crop } = req.body;
 
   if (!crop) {
-    return res.status(400).json({ error: "Crop name is required." });
+    return res.status(400).json({ error: 'Crop is required' });
   }
 
   try {
-    const completion = await openai.createChatCompletion({
-      model: "gpt-3.5-turbo",
-      messages: [
-        {
-          role: "user",
-          content: `Give soil care advice for growing ${crop} in medium moisture soil`,
-        },
-      ],
-    });
+    const filePath = path.resolve(process.cwd(), 'cropData.json');
+    const data = fs.readFileSync(filePath, 'utf8');
+    const crops = JSON.parse(data);
 
-    const advice = completion.data.choices[0].message.content;
-    res.status(200).json({ advice });
+    const advice = crops[crop.toLowerCase()];
+
+    if (advice) {
+      res.status(200).json({ advice });
+    } else {
+      res.status(200).json({ advice: 'Sorry, no advice available.' });
+    }
   } catch (error) {
-    console.error("Error from OpenAI:", error.message);
-    res.status(500).json({ error: "AI advice failed." });
+    console.error('Error reading crop data:', error);
+    res.status(500).json({ error: 'Failed to read crop data' });
   }
 }
