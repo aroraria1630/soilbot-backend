@@ -31,3 +31,4 @@ export default async function handler(req, res) {
 
   res.status(200).json({ advice: message });
 }
+import cropData from './cropData.json';
