@@ -1,47 +1,55 @@
-const express = require("express");
-const cors = require("cors");
-const fetch = require("node-fetch");
-require("dotenv").config();
+import express from "express";
+import dotenv from "dotenv";
+import fetch from "node-fetch";
+
+dotenv.config();
 
 const app = express();
-app.use(cors());
 app.use(express.json());
 
-let moisture = 480; // Replace with real sensor reading if available
+app.get("/moisture", (req, res) => {
+  // Replace this hardcoded value with actual sensor data later if needed
+  res.json({ moisture: 730 });
+});
 
 app.post("/advice", async (req, res) => {
-  const crop = req.body.crop?.toLowerCase() || "wheat";
+  const { crop } = req.body;
+  const openaiKey = process.env.OPENAI_API_KEY;
 
-  const prompt = `
-You are a smart farming assistant.
-Soil moisture is currently ${moisture}.
-The user wants to grow ${crop}.
-Give clear advice in 1–2 sentences about whether the soil is okay for this crop and what they should do.
-`;
+  if (!openaiKey) {
+    return res.status(500).json({ error: "OpenAI API key not configured" });
+  }
+
+  if (!crop) {
+    return res.status(400).json({ error: "Crop name is required" });
+  }
 
   try {
+    const prompt = `Give soil moisture advice for growing ${crop} in simple, clear language.`;
+
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${openaiKey}`,
       },
       body: JSON.stringify({
         model: "gpt-3.5-turbo",
-        messages: [
-          { role: "system", content: "You are an expert agricultural assistant." },
-          { role: "user", content: prompt }
-        ],
-        temperature: 0.7
-      })
+        messages: [{ role: "user", content: prompt }],
+      }),
     });
 
     const data = await response.json();
-    const advice = data.choices?.[0]?.message?.content || "Sorry, couldn't generate advice.";
+    const message = data.choices?.[0]?.message?.content;
 
-    res.json({ advice });
+    res.json({ advice: message || "Sorry, no advice available." });
   } catch (err) {
-    console.error("❌ OpenAI error:", err);
-    res.status(500).json({ advice: "Failed to get AI response." });
+    console.error("OpenAI error:", err);
+    res.status(500).json({ error: "Failed to fetch advice from AI." });
   }
+});
+
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+  console.log(`✅ Server running on port ${port}`);
 });
